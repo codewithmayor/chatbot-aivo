@@ -1,0 +1,76 @@
+{
+    "links": {
+      "callStrategique": "https://calendly.com/aivo-bot/30min",
+      "pdfExpress":      "https://aivo-servicefrance.systeme.io/4c7e84f3-047e7952",
+      "pdfMatrice":      "https://aivo-servicefrance.systeme.io/4c7e84f3",
+      "videoDemo":       "https://youtu.be/VIDEO_ID" 
+    },
+    "messages": {
+      "welcome":      "Tu veux arrêter de répondre à 47 messages/jour pour zéro RDV ? 😩 Tu veux te réveiller avec un agenda rempli sans rien faire ?",
+      "express":      "Tu veux aller droit au but et réserver ton appel stratégique maintenant ? 🔥",
+      "over18":       "T’as plus de 18 ans ?",
+      "business":     "Ton activité est lancée ou encore en construction ?",
+      "matrixOffer":  "Je peux t’envoyer notre guide Matrice Insta qui Convertit ?",
+      "activity":     "Tu fais quoi exactement ? Et tu génères déjà des leads en DM ?",
+      "budget":       "Si je te montrais un système qui te fait gagner 20h/mois et +30% de RDVs, quel budget mensuel te semblerait logique ?",
+      "fallback1":    "Désolé, je n’ai pas bien compris 😅 Tu veux qu’on reprenne depuis le début ou que je te mette en relation avec quelqu’un ?",
+      "fallback2":    "Ce n’est pas très clair. Tu veux plutôt qu’on planifie un appel rapide ensemble ?",
+      "noResponse":   "Tu es toujours là ? Je peux te récapituler si tu veux.",
+      "clarify":      "Tu peux reformuler ? Je veux être sûr de bien comprendre.",
+      "over18No":     "Solution réservée aux entrepreneurs majeurs. À bientôt 🙂",
+      "matrixYes":    "🔗 Voici votre guide : ",
+      "matrixNo":     "Merci pour votre intérêt. À bientôt !",
+      "starterOffer": "Proposition Starter à 389€/mois. Réservez un appel :",
+      "thankYou":     "Merci ! Nous revenons vers toi sous peu."
+    },
+    "tags": {
+      "leadFutur":    "lead_futur",
+      "leadMaturer":  "lead_maturer",
+      "leadChaud":    "lead_chaud",
+      "hotFastlane":  "hot_lead_fastlane",
+      "leadQualifie": "lead_qualifié"
+    },
+    "faq": [
+      {
+        "keywords": ["résultat", "appels qualifiés"],
+        "answer": "Les résultats sont entre 40 et 50% d'appels qualifiés en plus, et une économie de 200% mensuel par rapport au prix d'un setter classique."
+      },
+      {
+        "keywords": ["démonstration", "essai"],
+        "answer": "Oui, lors de notre appel gratuit, nous vous présenterons le chatbot et répondrons à toutes vos questions."
+      },
+      {
+        "keywords": ["24h", "24h24"],
+        "answer": "Il est actif 24h/24, 7j/7."
+      },
+      {
+        "keywords": ["semaine", "prêt"],
+        "answer": "La durée est d'environ 1 semaine à partir du remplissage du formulaire de démarrage."
+      },
+      {
+        "keywords": ["audience"],
+        "answer": "Oui, aucun souci avec ton audience. On adapte ton script à ton secteur."
+      },
+      {
+        "keywords": ["leads", "closer"],
+        "answer": "AIVO BOOST convertit mieux chaque contact grâce au filtrage, réponses instantanées et relances automatiques."
+      },
+      {
+        "keywords": ["configurer", "config"],
+        "answer": "Tu n'as rien à faire ; le chatbot sera configuré et prêt à l'emploi."
+      },
+      {
+        "keywords": ["support", "modifications"],
+        "answer": "Les modifications sont comprises dans l'abonnement mensuel, avec support permanent."
+      },
+      {
+        "keywords": ["données", "confidentielles"],
+        "answer": "Toutes les données sont confidentielles et accessibles uniquement par vous."
+      },
+      {
+        "keywords": ["arrêter", "stop"],
+        "answer": "Vous pouvez arrêter à tout moment ; nos mensualités sont sans engagement."
+      }
+    ]
+  }
+  
