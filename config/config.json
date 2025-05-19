@@ -3,7 +3,7 @@
       "callStrategique": "https://calendly.com/aivo-bot/30min",
       "pdfExpress":      "https://aivo-servicefrance.systeme.io/4c7e84f3-047e7952",
       "pdfMatrice":      "https://aivo-servicefrance.systeme.io/4c7e84f3",
-      "videoDemo":       "https://youtu.be/VIDEO_ID" 
+      "videoDemo":       "https://youtu.be/VIDEO_ID"
     },
     "messages": {
       "welcome":      "Tu veux arrêter de répondre à 47 messages/jour pour zéro RDV ? 😩 Tu veux te réveiller avec un agenda rempli sans rien faire ?",
@@ -71,6 +71,13 @@
         "keywords": ["arrêter", "stop"],
         "answer": "Vous pouvez arrêter à tout moment ; nos mensualités sont sans engagement."
       }
-    ]
+    ],
+    "company": {
+      "name":         "AIVO",
+      "logoUrl":      "/assets/logo-texte-noir.png",
+      "contactEmail": "aivo.servicefrance@gmail.com",
+      "contactPhone": "+33 629846986",
+      "language":     "fr"
+    }
   }
   
