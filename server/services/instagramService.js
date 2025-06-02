@@ -7,7 +7,8 @@ const { notifyHuman } = require('../services/notificationService');
 
 const VERIFY_TOKEN = process.env.INSTAGRAM_VERIFY_TOKEN;
 
-const sessions = {}; // In-memory session store
+// In-memory session store
+const sessions = {};
 
 router.get('/', (req, res) => {
   const { 'hub.mode': mode, 'hub.verify_token': token, 'hub.challenge': challenge } = req.query;
@@ -42,6 +43,7 @@ async function handleIncomingText(user, text) {
   if (sess.timer) clearTimeout(sess.timer);
 
   const lower = text.toLowerCase();
+  const m = config.messages;
 
   // FAQ auto-response
   for (const faq of config.faq) {
@@ -57,15 +59,14 @@ async function handleIncomingText(user, text) {
     await sendText(user, "Un coach arrive tout de suite ! 🙂");
     await notifyHuman({ user, answers: sess.answers });
     await logEvent({ user, direction: 'out', text: 'Human handoff triggered' });
-    return;
+    return endSession(user);
   }
-
-  const m = config.messages;
 
   try {
     switch (sess.step) {
       case 0:
         await sendQuickReplies(user, m.welcome, ['Oui', 'Pas sûr']);
+        sess.step++;
         break;
 
       case 1:
@@ -75,9 +76,10 @@ async function handleIncomingText(user, text) {
         } else {
           await sendText(user, "Je peux t’expliquer comment on aide des coachs comme Julien à générer +22 RDVs en 2 semaines. Tu veux que je t’en dise plus ?");
         }
+        sess.step++;
         break;
 
-      case 2:
+      case2:
         if (sess.answers.welcome === 'Oui') {
           if (text === 'Oui') {
             await sendButtonTemplate(user, m.express, [
@@ -87,10 +89,12 @@ async function handleIncomingText(user, text) {
             return endSession(user);
           } else {
             await sendQuickReplies(user, m.over18, ['Oui', 'Non']);
+            sess.step++;
           }
         } else {
           if (text.toLowerCase().startsWith('oui')) {
             await sendQuickReplies(user, m.over18, ['Oui', 'Non']);
+            sess.step++;
           } else {
             await sendText(user, m.matrixNo);
             return endSession(user);
@@ -105,6 +109,7 @@ async function handleIncomingText(user, text) {
           return endSession(user);
         } else {
           await sendQuickReplies(user, m.business, ['Oui, déjà lancé', 'Pas encore lancé']);
+          sess.step++;
         }
         break;
 
@@ -112,8 +117,10 @@ async function handleIncomingText(user, text) {
         sess.answers.business = text;
         if (text === 'Pas encore lancé') {
           await sendQuickReplies(user, m.matrixOffer, ['Oui', 'Non']);
+          sess.step++;
         } else {
           await sendQuickReplies(user, m.activity, []);
+          sess.step = 6; // skip to activity entry
         }
         break;
 
@@ -128,13 +135,17 @@ async function handleIncomingText(user, text) {
             await sendText(user, m.matrixNo);
           }
           return endSession(user);
-        } else {
-          sess.answers.activity = text;
-          await sendQuickReplies(user, m.budget, ['<100€', '100–500€', 'Jusqu’à 1000€']);
         }
+        // else, fall through to activity for those who are already launched
         break;
 
       case 6:
+        sess.answers.activity = text;
+        await sendQuickReplies(user, m.budget, ['<100€', '100–500€', 'Jusqu’à 1000€']);
+        sess.step++;
+        break;
+
+      case 7:
         sess.answers.budget = text;
         if (text === '<100€') {
           await sendButtonTemplate(user, m.starterOffer, [
@@ -144,6 +155,7 @@ async function handleIncomingText(user, text) {
           return finalizeLead(user);
         } else if (text === '100–500€' || text === 'Jusqu’à 1000€') {
           await sendQuickReplies(user, 'Appel stratégique ou démo vidéo ?', ['Appel stratégique', 'Démo vidéo']);
+          sess.step++;
         } else {
           await sendButtonTemplate(user, "Voici notre script et matrice :", [
             { type: 'web_url', url: config.links.pdfMatrice, title: 'Télécharger le PDF' }
@@ -153,7 +165,7 @@ async function handleIncomingText(user, text) {
         }
         break;
 
-      case 7:
+      case 8:
         if (text === 'Appel stratégique') {
           await sendButtonTemplate(user, 'Réservez un appel stratégique :', [
             { type: 'web_url', url: config.links.callStrategique, title: 'Calendly' }
@@ -166,9 +178,12 @@ async function handleIncomingText(user, text) {
           sess.answers.tag = config.tags.leadQualifie;
         }
         return finalizeLead(user);
-    }
 
-    sess.step++; // 🔧 this ensures progression happens
+      default:
+        await sendText(user, m.fallback1 || "Je n'ai pas compris, peux-tu reformuler ?");
+        sess.step = 0;
+        break;
+    }
     await logEvent({ user, direction: 'in', text });
     sess.timer = setTimeout(() => followUpNoResponse(user), 60 * 1000);
   } catch (e) {
@@ -183,7 +198,7 @@ async function followUpNoResponse(user) {
   await logEvent({ user, direction: 'out', text: config.messages.noResponse });
 
   sess.fallbackCount = (sess.fallbackCount || 0) + 1;
-  if (sess.fallbackCount > 1) {
+  if (sess.fallbackCount >1) {
     await sendButtonTemplate(user, config.messages.fallback2, [
       { type: 'postback', title: 'Contacter un coach', payload: 'HUMAN_HANDOFF' }
     ]);
