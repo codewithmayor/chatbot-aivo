@@ -1,15 +1,12 @@
-// server/routes/webhook.js
 const express = require('express');
 const router  = express.Router();
 const config  = require('../../config/config.json');
 const { sendText, sendQuickReplies, sendButtonTemplate } = require('../services/instagramService');
 const { saveLead, logEvent } = require('../services/airtableService');
 const { notifyHuman } = require('../services/notificationService');
+const { getSession, setSession, clearSession } = require('../services/sessionService');
 
 const VERIFY_TOKEN = process.env.INSTAGRAM_VERIFY_TOKEN;
-
-// In-memory sessions (for demo; use Redis in prod)
-const sessions = {}; /* { [userId]: { step, answers:{}, timer, fallbackCount } } */
 
 router.get('/', (req, res) => {
   const mode = req.query['hub.mode'], token = req.query['hub.verify_token'], challenge = req.query['hub.challenge'];
@@ -35,14 +32,11 @@ router.post('/', async (req, res) => {
 });
 
 async function handleIncomingText(user, text) {
-  // initialize session
-  if (!sessions[user]) sessions[user] = { step: 0, answers: {}, fallbackCount: 0, timer: null };
+  // Get session from Redis (or initialize if missing)
+  let sess = await getSession(user);
+  if (!sess) sess = { step: 0, answers: {}, fallbackCount:0, timer: null };
 
-  const sess = sessions[user];
-  // clear any pending inactivity timer
-  if (sess.timer) clearTimeout(sess.timer);
-
-  // 1) FAQ auto-response
+  // FAQ auto-response
   const lower = text.toLowerCase();
   for (const faq of config.faq) {
     if (faq.keywords.some(k => lower.includes(k))) {
@@ -52,36 +46,37 @@ async function handleIncomingText(user, text) {
     }
   }
 
-  // 2) Handle human handoff payload
+  // Human handoff
   if (text === 'HUMAN_HANDOFF') {
     await sendText(user, "Un coach arrive tout de suite ! 🙂");
     await notifyHuman({ user, answers: sess.answers });
     await logEvent({ user, direction: 'out', text: 'Human handoff triggered' });
+    await clearSession(user);
     return;
   }
 
-  // 3) Main flow steps
+  // Main flow
   const m = config.messages;
   switch (sess.step) {
-    case 0: // welcome
+    case 0:
       await sendQuickReplies(user, m.welcome, ['Oui','Pas sûr']);
       await logEvent({ user, direction:'out', text: m.welcome });
+      sess.step++;
       break;
 
-    case 1: // response to welcome
+    case 1:
       if (text === 'Oui') {
         await sendQuickReplies(user, m.express, ['Oui','Non']);
       } else {
-        // Pas sûr → explanation branch
-        await sendText(user, "Je peux t’expliquer comment on aide des coachs comme Julien à générer +22 RDVs en 2 semaines. Tu veux que je t’en dise plus ?");
+        await sendText(user, "Je peux t’expliquer comment on aide des coachs comme Julien à générer +22 RDVs en2 semaines. Tu veux que je t’en dise plus ?");
       }
       sess.answers.welcome = text;
       await logEvent({ user, direction:'in', text });
+      sess.step++;
       break;
 
-    case 2: // express block or "Pas sûr" branch
+    case 2:
       if (sess.answers.welcome === 'Oui') {
-        // express branch
         if (text === 'Oui') {
           await sendButtonTemplate(
             user,
@@ -89,43 +84,48 @@ async function handleIncomingText(user, text) {
             [{ type:'web_url', url: config.links.callStrategique, title:'Réserver un appel' }]
           );
           sess.answers.tag = config.tags.hotFastlane;
+          await setSession(user, sess);
+          return await finalizeLead(user);
         } else {
-          // continue normal
           await sendQuickReplies(user, m.over18, ['Oui','Non']);
         }
       } else {
-        // "Pas sûr" → after explanation
         if (text.toLowerCase().startsWith('oui')) {
           await sendQuickReplies(user, m.over18, ['Oui','Non']);
         } else {
           await sendText(user, m.matrixNo);
-          return endSession(user);
+          await clearSession(user);
+          return;
         }
       }
       await logEvent({ user, direction:'in', text });
+      sess.step++;
       break;
 
-    case 3: // over18?
+    case 3:
       if (text === 'Non') {
         await sendText(user, m.over18No);
-        return endSession(user);
+        await clearSession(user);
+        return;
       }
       await sendQuickReplies(user, m.business, ['Oui, déjà lancé','Pas encore lancé']);
       sess.answers.over18 = text;
       await logEvent({ user, direction:'in', text });
+      sess.step++;
       break;
 
-    case 4: // business launched?
+    case 4:
       sess.answers.business = text;
       if (text === 'Pas encore lancé') {
         await sendQuickReplies(user, m.matrixOffer, ['Oui','Non']);
       } else {
-        await sendQuickReplies(user, m.activity, []); // free-text next
+        await sendQuickReplies(user, m.activity, []);
       }
       await logEvent({ user, direction:'in', text });
+      sess.step++;
       break;
 
-    case 5: // matrixOffer branch?
+    case 5:
       if (sess.answers.business === 'Pas encore lancé') {
         if (text === 'Oui') {
           await sendButtonTemplate(
@@ -137,16 +137,17 @@ async function handleIncomingText(user, text) {
         } else {
           await sendText(user, m.matrixNo);
         }
-        return endSession(user);
+        await clearSession(user);
+        return;
       } else {
-        // activity free-text
         sess.answers.activity = text;
         await sendQuickReplies(user, m.budget, ['<100€','100–500€','Jusqu’à 1000€']);
       }
       await logEvent({ user, direction:'in', text });
+      sess.step++;
       break;
 
-    case 6: // budget
+    case 6:
       sess.answers.budget = text;
       if (text === '<100€') {
         await sendButtonTemplate(
@@ -155,22 +156,25 @@ async function handleIncomingText(user, text) {
           [{ type:'web_url', url: config.links.callStrategique, title:'Réserver un appel' }]
         );
         sess.answers.tag = config.tags.leadChaud;
-      } else if (text === '100–500€' || text === 'Jusqu’à 1000€') {
+        await setSession(user, sess);
+        return await finalizeLead(user);
+      } else if (text === '100–500€' || text === 'Jusqu’à1000€') {
         await sendQuickReplies(user, 'Appel stratégique ou démo vidéo ?', ['Appel stratégique','Démo vidéo']);
       } else {
-        // any other – send script & matrix
         await sendButtonTemplate(
           user,
           "Voici notre script et matrice :",
           [{ type:'web_url', url: config.links.pdfMatrice, title:'Télécharger le PDF' }]
         );
         sess.answers.tag = config.tags.leadMaturer;
-        return finalizeLead(user);
+        await setSession(user, sess);
+        return await finalizeLead(user);
       }
       await logEvent({ user, direction:'in', text });
+      sess.step++;
       break;
 
-    case 7: // appel vs démo branch
+    case 7:
       if (text === 'Appel stratégique') {
         await sendButtonTemplate(
           user,
@@ -182,37 +186,26 @@ async function handleIncomingText(user, text) {
         await sendButtonTemplate(
           user,
           'Voici la démo vidéo :',
-          [{ type:'web_url', url: config.links.videoDemo, title:'Voir la vidéo' }]
+          [{ type:'web_url', url: config.links.videoDemo, title: 'Voir la vidéo' }]
         );
         sess.answers.tag = config.tags.leadQualifie;
       }
       await logEvent({ user, direction:'in', text });
-      return finalizeLead(user);
+      await setSession(user, sess);
+      return await finalizeLead(user);
+
+    default:
+      await sendText(user, m.fallback1);
+      sess.step = 0;
+      break;
   }
 
-  sess.step++;
-  // set inactivity follow-up
-  sess.timer = setTimeout(() => followUpNoResponse(user), 60*1000);
-}
-
-async function followUpNoResponse(user) {
-  const sess = sessions[user];
-  if (!sess) return;
-  await sendText(user, config.messages.noResponse);
-  await logEvent({ user, direction:'out', text: config.messages.noResponse });
-  sess.fallbackCount = (sess.fallbackCount||0) + 1;
-  if (sess.fallbackCount > 1) {
-    // offer human handoff
-    await sendButtonTemplate(
-      user,
-      config.messages.fallback2,
-      [{ type:'postback', title:'Contacter un coach', payload:'HUMAN_HANDOFF' }]
-    );
-  }
+  // Save session after step update
+  await setSession(user, sess);
 }
 
 async function finalizeLead(user) {
-  const sess = sessions[user];
+  const sess = await getSession(user);
   await saveLead({
     name:     sess.answers.activity || 'Inconnu',
     email:    'non fourni',
@@ -222,12 +215,7 @@ async function finalizeLead(user) {
   });
   await logEvent({ user, direction:'out', text: config.messages.thankYou, tag: sess.answers.tag });
   await sendText(user, config.messages.thankYou);
-  endSession(user);
-}
-
-function endSession(user) {
-  if (sessions[user]?.timer) clearTimeout(sessions[user].timer);
-  delete sessions[user];
+  await clearSession(user);
 }
 
 module.exports = router;
