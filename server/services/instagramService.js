@@ -2,7 +2,8 @@
 const axios = require("axios");
 const PAGE_TOKEN = process.env.INSTAGRAM_ACCESS_TOKEN;
 
-const API_URL = "https://graph.facebook.com/v16.0/698987272735504/messages";
+const API_URL = "https://graph.facebook.com/v16.0/17841474793099225/messages"
+
 
 
 async function sendText(recipientId, text) {
