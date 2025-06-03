@@ -1,7 +1,9 @@
 // server/services/instagramService.js
 const axios = require("axios");
 const PAGE_TOKEN = process.env.INSTAGRAM_ACCESS_TOKEN;
-const API_URL = "https://graph.facebook.com/v16.0/me/messages";
+
+const API_URL = "https://graph.facebook.com/v16.0/698987272735504/messages";
+
 
 async function sendText(recipientId, text) {
   await axios.post(
@@ -55,5 +57,9 @@ async function sendButtonTemplate(recipientId, text, buttons) {
     { params: { access_token: PAGE_TOKEN } }
   );
 }
+
+console.log("Using token:", PAGE_TOKEN);
+console.log("Using endpoint:", API_URL);
+
 
 module.exports = { sendText, sendQuickReplies, sendButtonTemplate };
