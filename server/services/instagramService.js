@@ -7,6 +7,11 @@ const API_URL = "https://graph.facebook.com/v16.0/17841474793099225/messages"
 
 
 async function sendText(recipientId, text) {
+  console.log("POST", API_URL, {
+  recipient: { id: recipientId },
+  message: { text },
+  params: { access_token: PAGE_TOKEN }
+});
   await axios.post(
     API_URL,
     {
@@ -23,6 +28,14 @@ async function sendQuickReplies(recipientId, text, replies) {
     title,
     payload: title,
   }));
+
+   // Log API call details before making the request
+  console.log("POST", API_URL, {
+    recipient: { id: recipientId },
+    message: { text, quick_replies: qr },
+    params: { access_token: PAGE_TOKEN }
+  });
+  
   try {
     await axios.post(
       API_URL,
